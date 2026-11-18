@@ -172,6 +172,9 @@ export default function Footer() {
             Studio Support
           </h3>
           <div className="text-xs text-slate-400">
+            Owner: Ankart Enterprises
+          </div>
+          <div className="text-xs text-slate-400">
             HQ: Hyderabad, Telangana
           </div>
           <div className="text-xs text-slate-400 font-mono">
@@ -240,7 +243,7 @@ export default function Footer() {
       <div className="w-full bg-surface-container-lowest py-6 border-t border-white/5">
         <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-400">
           <div>
-            © {new Date().getFullYear()} XEVORA Optics Corp. All studio rights reserved.
+            © {new Date().getFullYear()} Xevora Lights, Ankart Enterprises. All studio rights reserved.
           </div>
           <div className="flex flex-wrap items-center gap-6">
             <Link href="/privacy-policy" className="hover:text-white transition-colors">

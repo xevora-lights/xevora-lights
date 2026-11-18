@@ -16,7 +16,9 @@ import {
   CheckCircle,
   Layers,
   ChevronRight,
-  Crosshair
+  Crosshair,
+  Building2,
+  MapPin
 } from "lucide-react";
 
 export const metadata = {
@@ -28,7 +30,7 @@ export const metadata = {
 export default function AboutPage() {
   return (
     <div className="w-full bg-[#0e0e12] text-[#e4e1e7] min-h-screen">
-      
+
       {/* ── 1. BRAND HERO BANNER ─────────────────────────────────────────── */}
       <section className="relative w-full overflow-hidden pt-28 pb-20 lg:pb-32 bg-surface-container-lowest border-b border-white/5">
         {/* Ambient Dark Atmospheric Background */}
@@ -40,7 +42,7 @@ export default function AboutPage() {
         <div className="absolute bottom-10 left-12 w-80 h-80 rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
 
         <div className="relative z-10 max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-12 flex flex-col gap-8">
-          
+
           {/* Top Status Tags */}
           <div className="flex flex-wrap items-center gap-3">
             <span className="px-3 py-1 rounded bg-surface-container text-primary font-mono text-xs uppercase tracking-widest flex items-center gap-2 border border-white/5">
@@ -53,7 +55,7 @@ export default function AboutPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
-            
+
             <div className="lg:col-span-8 flex flex-col gap-4">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.06]">
                 Engineering Light for the{" "}
@@ -69,7 +71,7 @@ export default function AboutPage() {
 
             {/* Right Metric Cards */}
             <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-4 lg:pl-6">
-              
+
               <div className="p-5 rounded-2xl bg-surface-container-low shadow-xl flex items-center justify-between border border-white/5">
                 <div>
                   <div className="font-mono text-xs text-secondary uppercase tracking-wider">
@@ -104,7 +106,7 @@ export default function AboutPage() {
       {/* ── 2. THE PROBLEM & OUR MISSION (ASYMMETRIC SPLIT) ────────────────── */}
       <section className="w-full py-20 lg:py-28 bg-surface border-b border-white/5">
         <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-12 flex flex-col gap-12">
-          
+
           <div className="flex flex-col gap-2">
             <span className="text-primary font-mono text-xs uppercase tracking-widest font-semibold">
               01 / The Creative Friction
@@ -115,7 +117,7 @@ export default function AboutPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-            
+
             {/* The Problem Card (Left) */}
             <div className="lg:col-span-5 p-8 lg:p-10 rounded-2xl bg-surface-container-low shadow-xl flex flex-col justify-between gap-8 border border-white/5">
               <div className="flex flex-col gap-6">
@@ -128,7 +130,7 @@ export default function AboutPage() {
                     Traditional high-output cinema lights require heavy duty C-stands, hot-shoe ballasts, bulky external inverters, and two crew members just to reposition for a close-up. Solo documentary directors and boutique studios were locked into cumbersome production overhead.
                   </p>
                 </div>
-                
+
                 <ul className="flex flex-col gap-3 text-xs sm:text-sm text-secondary">
                   <li className="flex items-center gap-3">
                     <XCircle className="w-4 h-4 text-red-400 shrink-0" />
@@ -153,7 +155,7 @@ export default function AboutPage() {
             {/* The Solution Showcase (Right) */}
             <div className="lg:col-span-7 p-8 lg:p-10 rounded-2xl bg-surface-container-high shadow-2xl flex flex-col justify-between gap-8 relative overflow-hidden border border-primary-container/20">
               <div className="absolute -right-16 -bottom-16 w-80 h-80 rounded-full bg-primary-container/15 blur-3xl pointer-events-none" />
-              
+
               <div className="flex flex-col gap-6 relative z-10">
                 <div className="flex items-center justify-between">
                   <div className="w-12 h-12 rounded-xl bg-primary-container text-white flex items-center justify-center shadow-lg">
@@ -212,7 +214,7 @@ export default function AboutPage() {
       {/* ── 3. THREE ENGINEERING PILLARS ─────────────────────────────────── */}
       <section className="w-full py-20 lg:py-28 bg-surface-container-lowest border-b border-white/5">
         <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-12 flex flex-col gap-12">
-          
+
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="flex flex-col gap-2">
               <span className="text-primary font-mono text-xs uppercase tracking-widest font-semibold">
@@ -228,7 +230,7 @@ export default function AboutPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
+
             {/* Pillar 01 */}
             <div className="p-8 rounded-2xl bg-surface-container-low shadow-xl flex flex-col justify-between gap-8 group hover:bg-surface-container transition-colors border border-white/5">
               <div className="flex flex-col gap-6">
@@ -349,9 +351,9 @@ export default function AboutPage() {
       {/* ── 4. ORIGINS & CRAFT (FOUNDER STORY & BLUEPRINT MOSAIC) ─────────── */}
       <section className="w-full py-20 lg:py-28 bg-surface border-b border-white/5">
         <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-12 flex flex-col gap-16">
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
+
             {/* Mosaic (Left) */}
             <div className="lg:col-span-6 grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-4">
@@ -426,7 +428,7 @@ export default function AboutPage() {
       {/* ── 5. GLOBAL VALIDATION // METRICS ──────────────────────────────── */}
       <section className="w-full py-20 bg-surface-container-lowest border-b border-white/5">
         <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-12 flex flex-col gap-12">
-          
+
           <div className="flex flex-col items-center text-center gap-2">
             <span className="text-primary font-mono text-xs uppercase tracking-widest font-semibold">
               GLOBAL VALIDATION // METRICS
@@ -437,7 +439,7 @@ export default function AboutPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
+
             <div className="p-8 rounded-2xl bg-surface-container-low shadow-xl flex flex-col items-center text-center gap-3 border border-white/5">
               <Film className="w-10 h-10 text-primary-container" />
               <div className="text-4xl font-extrabold text-white tracking-tight">50,000+</div>
@@ -490,6 +492,37 @@ export default function AboutPage() {
             </div>
           </div>
 
+          {/* Corporate Operations / Parent Entity Card */}
+          <div className="p-8 rounded-2xl bg-surface-container-low flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl border border-white/5">
+            <div className="flex items-start sm:items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary-container shrink-0 border border-white/5">
+                <Building2 className="w-6 h-6 text-primary-container" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] uppercase tracking-wider px-2 py-0.5 rounded bg-surface-container text-primary border border-white/5 font-semibold">
+                    Parent Entity // Headquarters
+                  </span>
+                </div>
+                <div className="font-bold text-lg sm:text-xl text-white">
+                  Owned &amp; Operated by Ankart Enterprises
+                </div>
+                <p className="text-xs sm:text-sm text-secondary max-w-2xl leading-relaxed">
+                  Headquartered in Hyderabad, Telangana, Ankart Enterprises directs official optical distribution, and studio warranty support for Xevora Lights across India.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-white/5 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs text-secondary font-mono">
+                <MapPin className="w-3.5 h-3.5 text-primary-container" />
+                <span>Hyderabad, Telangana</span>
+              </div>
+              <span className="text-[11px] font-mono text-primary uppercase tracking-wider px-2 py-0.5 rounded bg-surface-container border border-white/5">
+                Authorized Operations
+              </span>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -499,7 +532,7 @@ export default function AboutPage() {
           <div className="relative rounded-3xl overflow-hidden bg-surface-container-high p-8 sm:p-14 lg:p-20 shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-10 border border-white/10">
             <div className="absolute inset-0 bg-gradient-to-r from-surface-container-lowest via-surface-container-high to-surface-container-high opacity-90 z-0 pointer-events-none" />
             <div className="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-primary-container/20 blur-[110px] pointer-events-none" />
-            
+
             <div className="relative z-10 flex flex-col gap-4 max-w-2xl text-left">
               <span className="px-3.5 py-1 rounded-full bg-surface-container text-primary font-mono text-xs uppercase tracking-widest w-fit border border-white/5 font-semibold">
                 AVAILABLE NOW // BATCH 04 IN STOCK
