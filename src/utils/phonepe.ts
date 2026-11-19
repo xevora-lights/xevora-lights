@@ -39,8 +39,8 @@ export function getPhonePeConfig() {
   const clientVersion = parseInt(process.env.PHONEPE_CLIENT_VERSION || "1", 10);
   const envStr = (process.env.PHONEPE_ENV || "SANDBOX").toUpperCase();
   const env = envStr === "PRODUCTION" ? Env.PRODUCTION : Env.SANDBOX;
-  const username = process.env.PHONEPE_USERNAME || "";
-  const password = process.env.PHONEPE_PASSWORD || "";
+  const username = process.env.PHONEPE_WEBHOOK_USERNAME || "";
+  const password = process.env.PHONEPE_WEBHOOK_PASSWORD || "";
 
   return {
     clientId,

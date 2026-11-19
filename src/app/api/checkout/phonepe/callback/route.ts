@@ -4,12 +4,30 @@ import { orders, orderItems, cartItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getPhonePeClient } from "@/utils/phonepe";
 
-export async function GET(req: Request) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.vkdryfishbasket.com";
+function getBaseUrl(req: Request): string {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  const reqOrigin = host ? `${proto}://${host}` : "";
+  const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || reqOrigin || "https://xevoralights.com";
+  return rawBaseUrl.replace(/\/+$/, "");
+}
+
+async function handleCallback(req: Request) {
+  const baseUrl = getBaseUrl(req);
 
   try {
     const { searchParams } = new URL(req.url);
-    const merchantOrderId = searchParams.get("merchantOrderId");
+    let merchantOrderId = searchParams.get("merchantOrderId");
+
+    // In case PhonePe sends merchantOrderId in form body (POST)
+    if (!merchantOrderId && req.method === "POST") {
+      try {
+        const formData = await req.formData();
+        merchantOrderId = (formData.get("merchantOrderId") as string) || null;
+      } catch {
+        // Not form data
+      }
+    }
 
     if (!merchantOrderId) {
       console.error("[PhonePe Callback] Missing merchantOrderId query param");
@@ -34,7 +52,7 @@ export async function GET(req: Request) {
     try {
       const phonepeClient = getPhonePeClient();
       orderStatus = await phonepeClient.getOrderStatus(merchantOrderId);
-    } catch (statusError: any) {
+    } catch (statusError: unknown) {
       console.error(`[PhonePe Callback] Failed to fetch order status for ${merchantOrderId}:`, statusError);
       
       // If Webhook already confirmed payment, redirect gracefully to orders page
@@ -65,7 +83,7 @@ export async function GET(req: Request) {
           .where(eq(orders.id, order.id));
       }
 
-      // Clear user cart items
+      // Clear user cart items in database ONLY on success
       if (order.userId) {
         await db.delete(cartItems).where(eq(cartItems.userId, order.userId));
       }
@@ -73,7 +91,8 @@ export async function GET(req: Request) {
       console.log(`[PhonePe Callback] Payment verified successfully for order #${order.id}. Redirecting to profile orders.`);
       return NextResponse.redirect(`${baseUrl}/profile/orders?payment=success&orderId=${order.id}`);
     } else {
-      // Payment failed or cancelled: DO NOT place/create order in DB -> Delete pending order record
+      // Payment failed or cancelled: Delete unconfirmed pending order record
+      // NOTE: Cart items are intentionally NOT deleted, allowing user to retry
       if (order.paymentStatus !== "paid") {
         await db.delete(orderItems).where(eq(orderItems.orderId, order.id));
         await db.delete(orders).where(eq(orders.id, order.id));
@@ -82,8 +101,16 @@ export async function GET(req: Request) {
 
       return NextResponse.redirect(`${baseUrl}/cart?error=payment_failed`);
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[PhonePe Callback] Error during callback execution:", error);
     return NextResponse.redirect(`${baseUrl}/cart?error=internal_server_error`);
   }
+}
+
+export async function GET(req: Request) {
+  return handleCallback(req);
+}
+
+export async function POST(req: Request) {
+  return handleCallback(req);
 }

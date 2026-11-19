@@ -23,6 +23,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ExternalLink,
+  ArrowRight,
   X,
   Sparkles,
   Award
@@ -70,7 +71,6 @@ function AccountContent() {
   // Orders State
   const [ordersList, setOrdersList] = useState<any[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
-  const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -226,32 +226,6 @@ function AccountContent() {
       }
     } finally {
       setDeletingAddressIndex(null);
-    }
-  };
-
-  // Cancel Order
-  const handleCancelOrder = async (orderIdToCancel: number) => {
-    if (!confirm("Are you sure you want to cancel this order?")) return;
-    setCancellingOrderId(orderIdToCancel);
-    try {
-      const res = await fetch(`/api/profile/orders/${orderIdToCancel}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "Creator cancelled from dashboard" }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setOrdersList((prev) =>
-          prev.map((o) => (o.id === orderIdToCancel ? { ...o, status: "cancelled" } : o))
-        );
-        showToast(`Order #${orderIdToCancel} has been cancelled`);
-      } else {
-        showToast(data.error || "Failed to cancel order");
-      }
-    } catch {
-      showToast("Error cancelling order");
-    } finally {
-      setCancellingOrderId(null);
     }
   };
 
@@ -855,16 +829,13 @@ function AccountContent() {
                                   <ExternalLink className="w-3 h-3" />
                                 </a>
                               )}
-                              {isCancellable && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleCancelOrder(order.id)}
-                                  disabled={cancellingOrderId === order.id}
-                                  className="text-xs text-error hover:underline font-mono disabled:opacity-50"
-                                >
-                                  {cancellingOrderId === order.id ? "Cancelling..." : "Cancel Order"}
-                                </button>
-                              )}
+                              <Link
+                                href={`/profile/orders?orderId=${order.id}`}
+                                className="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-white/10 text-white font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors border border-white/10 hover:border-white/20"
+                              >
+                                <span>View Details</span>
+                                <ArrowRight className="w-3.5 h-3.5 text-primary-container" />
+                              </Link>
                             </div>
                           </div>
                         </div>

@@ -4,15 +4,28 @@ import { orders, orderItems, cartItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getPhonePeClient, getPhonePeConfig } from "@/utils/phonepe";
 
+/**
+ * Handle GET/HEAD requests so external monitoring, proxies, or PhonePe verification
+ * checks receive an immediate 200 OK.
+ */
+export async function GET() {
+  return NextResponse.json({ success: true, message: "PhonePe webhook endpoint active" }, { status: 200 });
+}
+
+export async function HEAD() {
+  return new NextResponse(null, { status: 200 });
+}
+
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || "";
     const rawBody = await req.text();
 
-    if (!rawBody) {
+    // Health-check / dashboard registration ping with empty body
+    if (!rawBody || rawBody.trim().length === 0) {
       return NextResponse.json(
-        { success: false, error: "Empty request body" },
-        { status: 400 }
+        { success: true, message: "Webhook validation ping acknowledged" },
+        { status: 200 }
       );
     }
 
@@ -27,7 +40,7 @@ export async function POST(req: Request) {
         authHeader,
         rawBody
       );
-    } catch (validationError: any) {
+    } catch (validationError: unknown) {
       console.error("[PhonePe Webhook] Callback validation failed:", validationError);
       return NextResponse.json(
         { success: false, error: "Invalid callback signature or authentication" },
@@ -38,8 +51,8 @@ export async function POST(req: Request) {
     const payload = callbackResponse?.payload;
     if (!payload) {
       return NextResponse.json(
-        { success: false, error: "Missing payload in callback response" },
-        { status: 400 }
+        { success: true, message: "Ping or non-order payload acknowledged" },
+        { status: 200 }
       );
     }
 
@@ -49,8 +62,8 @@ export async function POST(req: Request) {
 
     if (!merchantOrderId) {
       return NextResponse.json(
-        { success: false, error: "Merchant order ID missing from payload" },
-        { status: 400 }
+        { success: true, message: "Payload without order ID acknowledged" },
+        { status: 200 }
       );
     }
 
@@ -62,10 +75,10 @@ export async function POST(req: Request) {
       .limit(1);
 
     if (!orderRows.length) {
-      console.error(`[PhonePe Webhook] Order not found for merchantOrderId: ${merchantOrderId}`);
+      console.log(`[PhonePe Webhook] Order not found for merchantOrderId: ${merchantOrderId} (might be test event or already deleted).`);
       return NextResponse.json(
-        { success: false, error: "Order not found" },
-        { status: 404 }
+        { success: true, message: "Order not found or already deleted" },
+        { status: 200 }
       );
     }
 
@@ -83,26 +96,28 @@ export async function POST(req: Request) {
         })
         .where(eq(orders.id, order.id));
 
-      // Clear cart items for the customer
+      // Clear cart items for the customer ONLY on confirmed payment
       if (order.userId) {
         await db.delete(cartItems).where(eq(cartItems.userId, order.userId));
       }
 
       console.log(`[PhonePe Webhook] Order #${order.id} payment confirmed successfully.`);
     } else {
-      // Payment failed or cancelled: Delete order record from DB
+      // Payment failed or cancelled: Delete unconfirmed pending order record
+      // NOTE: Cart items are intentionally NOT deleted, allowing user to retry
       if (order.paymentStatus !== "paid") {
         await db.delete(orderItems).where(eq(orderItems.orderId, order.id));
         await db.delete(orders).where(eq(orders.id, order.id));
-        console.log(`[PhonePe Webhook] Order #${order.id} payment failed with state: ${state}. Deleted order from DB.`);
+        console.log(`[PhonePe Webhook] Order #${order.id} payment failed with state: ${state}. Deleted pending order from DB.`);
       }
     }
 
     return NextResponse.json({ success: true, message: "Webhook processed" });
-  } catch (error: any) {
-    console.error("[PhonePe Webhook] Error processing webhook:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[PhonePe Webhook] Error processing webhook:", err);
     return NextResponse.json(
-      { success: false, error: error.message || "Internal Server Error" },
+      { success: false, error: err.message || "Internal Server Error" },
       { status: 500 }
     );
   }

@@ -17,12 +17,10 @@ import {
   Ticket,
   Truck,
   RotateCcw,
-  Shield,
   Loader2,
   CreditCard,
   MapPin,
   ArrowLeft,
-  Sparkles,
   Heart
 } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
@@ -227,7 +225,7 @@ function CartContent() {
     setCheckoutStep("summary");
   };
 
-  // Payment trigger (Gateway Bypass for test mode flow validation)
+  // Payment trigger (PhonePe Standard Checkout)
   const handleConfirmOrder = async () => {
     setIsProcessingPayment(true);
     setCheckoutError(null);
@@ -240,7 +238,7 @@ function CartContent() {
     }
 
     try {
-      const res = await fetch("/api/checkout", {
+      const res = await fetch("/api/checkout/phonepe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -252,19 +250,17 @@ function CartContent() {
       });
 
       const data = await res.json();
-      if (!data.success) {
-        setCheckoutError(data.error || "Failed to confirm order.");
+      if (!data.success || !data.redirectUrl) {
+        setCheckoutError(data.error || "Failed to initiate payment with PhonePe.");
         setIsProcessingPayment(false);
         return;
       }
 
-      setConfirmedOrderId(data.orderId);
-      clearCart();
-      setCheckoutStep("confirmed");
-    } catch (err: any) {
-      console.error("Order confirmation error:", err);
-      setCheckoutError("An unexpected error occurred while placing your order.");
-    } finally {
+      // Redirect user directly to PhonePe Gateway
+      window.location.href = data.redirectUrl;
+    } catch (err: unknown) {
+      console.error("Order payment initiation error:", err);
+      setCheckoutError("An unexpected error occurred while initiating payment.");
       setIsProcessingPayment(false);
     }
   };
@@ -888,10 +884,10 @@ function CartContent() {
                   </div>
                 </div>
 
-                {/* Test Mode Banner */}
-                <div className="p-2.5 rounded-xl bg-primary-container/15 border border-primary-container/30 text-white text-[11px] font-mono flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 shrink-0 text-primary-container" />
-                  <span>Test Flow: Payment Gateway bypassed. Order will be confirmed directly.</span>
+                {/* Secure Gateway Banner */}
+                <div className="p-2.5 rounded-xl bg-surface-container border border-white/5 text-white/70 text-[11px] font-mono flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Secure encrypted transaction powered by PhonePe</span>
                 </div>
 
                 {/* Error Banner */}
@@ -920,11 +916,11 @@ function CartContent() {
                     {isProcessingPayment ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Allocating Hardware Order...</span>
+                        <span>Redirecting to PhonePe...</span>
                       </>
                     ) : (
                       <>
-                        <span>Confirm &amp; Place Order</span>
+                        <span>Proceed to Payment (PhonePe)</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
