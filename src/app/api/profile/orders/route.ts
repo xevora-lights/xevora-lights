@@ -31,6 +31,7 @@ export async function GET() {
       estimatedDeliveryDate: orders.estimatedDeliveryDate,
       shippingNotes: orders.shippingNotes,
       cancellationReason: orders.cancellationReason,
+      cancelledBy: orders.cancelledBy,
     })
     .from(orders)
     .leftJoin(coupons, eq(orders.couponCode, coupons.code))
@@ -94,8 +95,9 @@ export async function GET() {
       data: ordersWithItems,
       orders: ordersWithItems,
     });
-  } catch (error: any) {
-    console.error("User Orders API Error:", error);
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("User Orders API Error:", err);
+    return NextResponse.json({ success: false, error: err.message || "Internal Server Error" }, { status: 500 });
   }
 }

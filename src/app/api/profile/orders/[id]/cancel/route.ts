@@ -16,10 +16,20 @@ export async function PATCH(
   }
 
   try {
-    const orderId = parseInt(id);
+    const orderId = parseInt(id, 10);
 
     if (isNaN(orderId)) {
       return NextResponse.json({ success: false, error: "Invalid order ID" }, { status: 400 });
+    }
+
+    let reason = "Cancelled by customer";
+    try {
+      const body = await req.json();
+      if (body?.reason && typeof body.reason === "string" && body.reason.trim()) {
+        reason = body.reason.trim();
+      }
+    } catch {
+      // Body empty or not JSON
     }
 
     // Fetch the order (must belong to this user)
@@ -34,25 +44,36 @@ export async function PATCH(
     }
 
     const order = orderRows[0];
+    const status = (order.status || "").toLowerCase();
 
-    // Only allow cancellation if order is still pending
-    const status = order.status?.toLowerCase() || "";
-    if (status !== "pending" && status !== "confirmed") {
-      return NextResponse.json({
-        success: false,
-        error: `Cannot cancel an order with status '${order.status}'.`,
-      }, { status: 403 });
+    if (status === "cancelled") {
+      return NextResponse.json({ success: true, message: "Order is already cancelled" });
+    }
+
+    if (status === "shipped" || status === "delivered") {
+      return NextResponse.json(
+        { success: false, error: `Cannot cancel an order that is already ${order.status}.` },
+        { status: 403 }
+      );
     }
 
     await db
       .update(orders)
-      .set({ status: "cancelled" })
+      .set({
+        status: "Cancelled",
+        cancellationReason: reason,
+        cancelledBy: "customer",
+      })
       .where(and(eq(orders.id, orderId), eq(orders.userId, user.id)));
 
     return NextResponse.json({ success: true, message: "Order cancelled successfully" });
-  } catch (error: any) {
-    console.error("Order Cancellation API Error:", error);
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Order Cancellation API Error:", err);
+    return NextResponse.json(
+      { success: false, error: err.message || "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 

@@ -105,6 +105,7 @@ export const orders = sqliteTable("orders", {
   estimatedDeliveryDate: integer("estimated_delivery_date", { mode: "timestamp" }),
   shippingNotes: text("shipping_notes"),
   cancellationReason: text("cancellation_reason"),
+  cancelledBy: text("cancelled_by"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
 });
 

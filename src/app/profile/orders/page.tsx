@@ -60,6 +60,7 @@ interface Order {
   estimatedDeliveryDate?: string | null;
   shippingNotes?: string | null;
   cancellationReason?: string | null;
+  cancelledBy?: string | null;
 }
 
 const isProductCouponMatch = (
@@ -152,15 +153,24 @@ interface UserReview {
 
 const MILESTONES = ["Confirmed", "Processing", "Shipped", "Delivered"];
 
+const CUSTOMER_CANCEL_PRESETS = [
+  "Ordered by mistake / wrong specification",
+  "Need different optical model / changed mind",
+  "Shoot schedule changed / urgent requirement",
+  "Payment or billing issue",
+  "Other reason",
+];
+
 function MyOrdersContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
-  const [confirmingCancelId, setConfirmingCancelId] = useState<number | null>(
-    null
-  );
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
+  const [selectedCancelPreset, setSelectedCancelPreset] = useState(CUSTOMER_CANCEL_PRESETS[0]);
+  const [customCancelNotes, setCustomCancelNotes] = useState("");
   const searchParams = useSearchParams();
 
   // Review states
@@ -228,15 +238,30 @@ function MyOrdersContent() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  const handleCancelOrder = async (orderId: number) => {
+  const handleOpenCancelModal = (orderId: number) => {
+    setCancelOrderId(orderId);
+    setSelectedCancelPreset(CUSTOMER_CANCEL_PRESETS[0]);
+    setCustomCancelNotes("");
+    setIsCancelModalOpen(true);
+  };
+
+  const handleConfirmCustomerCancel = async () => {
+    if (!cancelOrderId) return;
+    const fullReason = customCancelNotes.trim()
+      ? `${selectedCancelPreset} — ${customCancelNotes.trim()}`
+      : selectedCancelPreset;
+
     setIsCancelling(true);
     try {
-      const res = await fetch(`/api/profile/orders/${orderId}/cancel`, {
-        method: "PATCH",
+      const res = await fetch(`/api/profile/orders/${cancelOrderId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: fullReason }),
       });
       const data = await res.json();
       if (data.success) {
         showToast("Order cancelled successfully");
+        setIsCancelModalOpen(false);
         fetchOrders();
       } else {
         showToast(data.error || "Failed to cancel order");
@@ -246,7 +271,6 @@ function MyOrdersContent() {
       showToast("Something went wrong");
     } finally {
       setIsCancelling(false);
-      setConfirmingCancelId(null);
     }
   };
 
@@ -882,51 +906,37 @@ function MyOrdersContent() {
 
                         <div className="p-4 rounded-2xl bg-surface-container-high/40 border border-white/5">
                           {isCancellable ? (
-                            confirmingCancelId === order.id ? (
-                              <div className="space-y-3">
-                                <p className="text-xs font-mono text-rose-400 font-semibold leading-relaxed">
-                                  Confirm cancellation? This will cancel the order and release allocated inventory.
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    disabled={isCancelling}
-                                    onClick={() => handleCancelOrder(order.id)}
-                                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-mono font-bold rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                                  >
-                                    {isCancelling ? (
-                                      <Loader2 size={12} className="animate-spin" />
-                                    ) : (
-                                      <Check size={12} />
-                                    )}
-                                    <span>Yes, Cancel</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={isCancelling}
-                                    onClick={() => setConfirmingCancelId(null)}
-                                    className="flex-1 py-2.5 bg-surface-container hover:bg-surface-container-high text-secondary hover:text-white font-mono font-bold rounded-xl transition-all text-xs border border-white/10 cursor-pointer"
-                                  >
-                                    No, Keep
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setConfirmingCancelId(order.id)}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 transition-all font-mono font-semibold text-xs cursor-pointer"
-                              >
-                                <XCircle size={14} />
-                                <span>Cancel Order</span>
-                              </button>
-                            )
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCancelModal(order.id)}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 transition-all font-mono font-semibold text-xs cursor-pointer"
+                            >
+                              <XCircle size={14} />
+                              <span>Cancel Order</span>
+                            </button>
                           ) : isCancelled ? (
-                            <div className="flex items-start gap-2.5 text-rose-400 text-xs font-mono">
-                              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-                              <p>
-                                Order Cancelled. If payment was captured, refund is processed within 5-7 working days.
-                              </p>
+                            <div className="space-y-3 p-1 font-mono text-xs">
+                              <div className="flex items-center gap-2 text-rose-400 font-bold">
+                                <AlertTriangle size={15} className="shrink-0" />
+                                <span>Order Cancelled</span>
+                              </div>
+                              <div className="space-y-2 pt-1.5 border-t border-white/5 text-[11px]">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-secondary">Cancelled By:</span>
+                                  <span className="text-white font-bold uppercase tracking-wider">
+                                    {order.cancelledBy === "admin" ? "Store Administrator" : "You (Customer)"}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col gap-1 pt-0.5">
+                                  <span className="text-secondary">Reason:</span>
+                                  <span className="text-white bg-black/40 p-2.5 rounded-xl border border-white/5 font-sans leading-relaxed text-xs">
+                                    {order.cancellationReason || "No specific reason recorded."}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-secondary/70 pt-1 leading-relaxed">
+                                  If payment was captured, refund is processed within 5-7 working days.
+                                </p>
+                              </div>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono">
@@ -942,6 +952,111 @@ function MyOrdersContent() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Customer Cancellation Reason Modal ── */}
+      {isCancelModalOpen && cancelOrderId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+          onClick={() => !isCancelling && setIsCancelModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg bg-surface-container border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl text-white space-y-5 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400">
+                  <XCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-tight">
+                    Cancel Hardware Order
+                  </h3>
+                  <p className="text-xs text-secondary font-mono">
+                    Order #XV-ORD-{cancelOrderId} • Please share your reason
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={() => setIsCancelModalOpen(false)}
+                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-secondary hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Presets Selection */}
+            <div className="space-y-2">
+              <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-secondary">
+                Select Reason *
+              </label>
+              <div className="space-y-1.5">
+                {CUSTOMER_CANCEL_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setSelectedCancelPreset(preset)}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl font-mono text-xs transition-all border flex items-center justify-between cursor-pointer ${
+                      selectedCancelPreset === preset
+                        ? "bg-rose-500/15 border-rose-500/40 text-white font-semibold"
+                        : "bg-surface-container-high/60 border-white/5 text-secondary hover:text-white hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <span>{preset}</span>
+                    {selectedCancelPreset === preset && (
+                      <Check className="w-4 h-4 text-rose-400 shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Notes */}
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-secondary">
+                Additional Comments (Optional)
+              </label>
+              <textarea
+                rows={3}
+                value={customCancelNotes}
+                onChange={(e) => setCustomCancelNotes(e.target.value)}
+                placeholder="Provide any additional details or feedback for our studio logistics team..."
+                className="w-full bg-surface-container-high border border-white/10 rounded-xl p-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-rose-500/50 transition-colors resize-none font-mono leading-relaxed"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={() => setIsCancelModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-white/10 text-secondary hover:text-white text-xs font-mono font-bold transition-all cursor-pointer disabled:opacity-50"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={handleConfirmCustomerCancel}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-mono font-bold uppercase tracking-wider shadow-lg shadow-rose-600/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isCancelling ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <span>Confirm Cancellation</span>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

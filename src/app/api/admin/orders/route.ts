@@ -34,6 +34,8 @@ export async function GET(request: Request) {
       trackingLink: orders.trackingLink,
       estimatedDeliveryDate: orders.estimatedDeliveryDate,
       shippingNotes: orders.shippingNotes,
+      cancellationReason: orders.cancellationReason,
+      cancelledBy: orders.cancelledBy,
     })
     .from(orders)
     .leftJoin(users, eq(orders.userId, users.id))

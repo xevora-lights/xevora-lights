@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ShoppingBag, Clock, CheckCircle2, Truck, Loader2, User, Phone, Ruler, ChevronDown, ChevronUp, Sparkles, Scissors, MapPin, CreditCard, X } from "lucide-react";
+import { ShoppingBag, Clock, CheckCircle2, Truck, Loader2, User, Phone, Ruler, ChevronDown, ChevronUp, Sparkles, Scissors, MapPin, CreditCard, X, XCircle, AlertTriangle, Check } from "lucide-react";
 
 interface OrderItem {
   id: number;
@@ -38,7 +38,18 @@ interface Order {
   trackingLink?: string | null;
   estimatedDeliveryDate?: string | null;
   shippingNotes?: string | null;
+  cancellationReason?: string | null;
+  cancelledBy?: string | null;
 }
+
+const ADMIN_CANCEL_PRESETS = [
+  "Customer requested cancellation",
+  "Optical hardware / component out of stock",
+  "Courier or destination pin-code unserviceable",
+  "Fraudulent / unverified order",
+  "Payment or technical gateway issue",
+  "Other administrative reason",
+];
 
 function getProductImage(imagesStr: string | null, color?: string | null) {
   try {
@@ -59,7 +70,7 @@ function getProductImage(imagesStr: string | null, color?: string | null) {
         }
       }
     }
-  } catch (e) {}
+  } catch {}
   return "/images/placeholder.png";
 }
 
@@ -94,6 +105,7 @@ export default function AdminOrders() {
   // Cancellation Modal States
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
+  const [selectedAdminCancelPreset, setSelectedAdminCancelPreset] = useState(ADMIN_CANCEL_PRESETS[0]);
   const [cancelReason, setCancelReason] = useState("");
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
 
@@ -111,10 +123,6 @@ export default function AdminOrders() {
     "Cancelled"
   ];
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
   const fetchOrders = async () => {
     try {
       const res = await fetch("/api/admin/orders");
@@ -128,6 +136,29 @@ export default function AdminOrders() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/admin/orders");
+        const data = await res.json();
+        if (!ignore && data.success) {
+          setOrders(data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch orders", error);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const updateOrderStatus = async (id: number, newStatus: string) => {
     setUpdatingId(id);
@@ -149,18 +180,32 @@ export default function AdminOrders() {
 
   const handleConfirmCancel = async () => {
     if (!cancelOrderId) return;
+    const fullReason = cancelReason.trim()
+      ? `${selectedAdminCancelPreset} — ${cancelReason.trim()}`
+      : selectedAdminCancelPreset;
+
     setIsSubmittingCancel(true);
     try {
       const res = await fetch(`/api/admin/orders/${cancelOrderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Cancelled", cancellationReason: cancelReason.trim() })
+        body: JSON.stringify({
+          status: "Cancelled",
+          cancellationReason: fullReason,
+          cancelledBy: "admin",
+        })
       });
       if (res.ok) {
-        setOrders(prev => prev.map(o => o.id === cancelOrderId ? { ...o, status: "Cancelled" } : o));
+        setOrders(prev => prev.map(o => o.id === cancelOrderId ? {
+          ...o,
+          status: "Cancelled",
+          cancellationReason: fullReason,
+          cancelledBy: "admin"
+        } : o));
         showToast("Order cancelled successfully");
         setShowCancelModal(false);
         setCancelReason("");
+        setSelectedAdminCancelPreset("");
         setCancelOrderId(null);
       } else {
         const err = await res.json();
@@ -380,36 +425,54 @@ export default function AdminOrders() {
                     <span className="text-[8px] font-black uppercase tracking-widest">Bespoke Order</span>
                   </div>
                 )}
-                <div className="relative group">
-                  <select 
-                    value={order.status}
-                    disabled={updatingId === order.id || order.status?.toLowerCase() === "cancelled"}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      const val = e.target.value;
-                      if (val.toLowerCase() === "cancelled") {
-                        setCancelOrderId(order.id);
-                        setCancelReason("");
-                        setShowCancelModal(true);
-                      } else {
-                        updateOrderStatus(order.id, val);
-                      }
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className={`appearance-none px-4 py-1.5 pr-10 rounded-full text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all border outline-none ${getStatusStyles(order.status)} ${updatingId === order.id ? "opacity-50 animate-pulse" : ""}`}
-                  >
-                    {ORDER_STATUSES.map(s => {
-                      const isDisabled = s.toLowerCase() === "cancelled" && 
-                        ["shipped", "delivered"].includes(order.status?.toLowerCase() || "");
-                      return (
-                        <option key={s} value={s} disabled={isDisabled} className={getStatusStyles(s)}>
-                          {s}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-40" />
-                </div>
+                {order.status?.toLowerCase() === "cancelled" ? (
+                  <div className="flex flex-col gap-1">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-50 text-rose-600 border border-rose-200 shadow-sm w-fit">
+                      <XCircle size={11} />
+                      <span>CANCELLED (Locked)</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-medium flex flex-wrap items-center gap-1 pt-0.5">
+                      <span className="font-bold text-slate-700">
+                        Cancelled by {order.cancelledBy === "admin" ? "Admin" : "Customer"}:
+                      </span>
+                      <span className="italic text-slate-600 truncate max-w-[200px] sm:max-w-xs" title={order.cancellationReason || ""}>
+                        &quot;{order.cancellationReason || "No reason recorded"}&quot;
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative group">
+                    <select 
+                      value={order.status}
+                      disabled={updatingId === order.id}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        const val = e.target.value;
+                        if (val.toLowerCase() === "cancelled") {
+                          setCancelOrderId(order.id);
+                          setCancelReason("");
+                          setSelectedAdminCancelPreset(ADMIN_CANCEL_PRESETS[0]);
+                          setShowCancelModal(true);
+                        } else {
+                          updateOrderStatus(order.id, val);
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`appearance-none px-4 py-1.5 pr-10 rounded-full text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all border outline-none ${getStatusStyles(order.status)} ${updatingId === order.id ? "opacity-50 animate-pulse" : ""}`}
+                    >
+                      {ORDER_STATUSES.map(s => {
+                        const isDisabled = s.toLowerCase() === "cancelled" && 
+                          ["shipped", "delivered"].includes(order.status?.toLowerCase() || "");
+                        return (
+                          <option key={s} value={s} disabled={isDisabled} className={getStatusStyles(s)}>
+                            {s}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-40" />
+                  </div>
+                )}
               </div>
                     <p className="text-xs text-slate-400 font-medium mt-1">
                       Placed on {new Date(order.createdAt).toLocaleDateString()}
@@ -432,6 +495,25 @@ export default function AdminOrders() {
               {expandedOrder === order.id && (
                 <div className="border-t border-slate-200/80 p-8 bg-slate-50">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                    {order.status?.toLowerCase() === "cancelled" && (
+                      <div className="col-span-full p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-900">
+                        <AlertTriangle className="shrink-0 text-rose-600 mt-0.5" size={18} />
+                        <div className="space-y-1 text-xs">
+                          <p className="font-bold uppercase tracking-wider text-[11px] text-rose-700">
+                            Order Cancelled (Status Locked)
+                          </p>
+                          <p className="text-slate-700">
+                            <strong>Cancelled By:</strong>{" "}
+                            <span className="font-semibold uppercase font-mono">
+                              {order.cancelledBy === "admin" ? "Store Administrator" : "Customer (via Storefront)"}
+                            </span>
+                          </p>
+                          <p className="text-slate-700">
+                            <strong>Cancellation Reason:</strong> {order.cancellationReason || "No specific reason recorded."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     {/* Customer Info */}
                     <div className="space-y-6">
                       <h4 className="text-xs font-black text-black uppercase tracking-widest flex items-center gap-2">
@@ -572,7 +654,7 @@ export default function AdminOrders() {
                                     {Object.entries(item.customizations.measurements).map(([key, val]) => (
                                       <div key={key} className="bg-white/80 p-3 rounded-xl border border-slate-200">
                                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{key}</p>
-                                        <p className="text-xs font-black text-black">{val}"</p>
+                                        <p className="text-xs font-black text-black">{val}&quot;</p>
                                       </div>
                                     ))}
                                   </div>
@@ -584,57 +666,89 @@ export default function AdminOrders() {
                         })}
 
                         {/* Order Summary / Pricing Breakdown */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 mt-4 space-y-4 text-black">
-                          <h5 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-                            <ShoppingBag size={12} className="text-black-accent" /> Order Summary
-                          </h5>
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-semibold text-slate-500">Actual Price (Subtotal)</span>
-                              <span className="font-bold text-black">₹{(order.totalAmount + (order.discountAmount || 0)).toLocaleString()}</span>
-                            </div>
-                            
-                            {order.couponCode && (
-                              <div className="flex justify-between items-center text-xs text-green-600 bg-green-50 px-3 py-2 rounded-xl border border-green-100">
-                                <span className="font-bold flex items-center gap-1">
-                                  🏷️ Coupon Applied: <span className="uppercase bg-green-200/50 px-1.5 py-0.5 rounded text-[10px]">{order.couponCode}</span>
-                                </span>
-                                <span className="font-black">-₹{order.discountAmount?.toLocaleString()}</span>
+                        {(() => {
+                          const itemsSubtotal = (order.items || []).reduce(
+                            (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
+                            0
+                          );
+                          const totalUnits = (order.items || []).reduce(
+                            (sum, item) => sum + (item.quantity || 1),
+                            0
+                          );
+                          const discount = order.discountAmount || 0;
+                          const courierFee = (order.items || []).length > 0
+                            ? Math.max(0, order.totalAmount + discount - itemsSubtotal)
+                            : 0;
+
+                          return (
+                            <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 mt-4 space-y-4 text-black">
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                                <h5 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-1.5">
+                                  <ShoppingBag size={12} className="text-[#e51a34]" /> Billing &amp; Price Breakdown
+                                </h5>
+                                <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">INR (₹)</span>
                               </div>
-                            )}
 
-                            <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-sm font-black mt-2">
-                              <span>Grand Total</span>
-                              <span className="text-black-accent">₹{order.totalAmount.toLocaleString()}</span>
-                            </div>
+                              <div className="space-y-2.5 text-xs">
+                                {/* Hardware Subtotal */}
+                                <div className="flex justify-between items-center text-slate-600 font-mono">
+                                  <span>Hardware Subtotal ({totalUnits} {totalUnits === 1 ? "Unit" : "Units"})</span>
+                                  <span className="font-bold text-black">₹{itemsSubtotal.toLocaleString("en-IN")}</span>
+                                </div>
 
-                            {/* Shipping Info Action Button */}
-                            <div className="pt-4 border-t border-slate-200 mt-4">
-                              <button
-                                disabled={order.status?.toLowerCase() !== "processing"}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedOrderForShipping(order);
-                                  setShippingForm({
-                                    courierServiceName: order.courierServiceName || "",
-                                    courierId: order.courierId || "",
-                                    trackingNumber: order.trackingNumber || "",
-                                    trackingLink: order.trackingLink || "",
-                                    estimatedDeliveryDate: order.estimatedDeliveryDate 
-                                      ? new Date(order.estimatedDeliveryDate).toISOString().split('T')[0]
-                                      : "",
-                                    shippingNotes: order.shippingNotes || ""
-                                  });
-                                  setShowShippingModal(true);
-                                }}
-                                className="w-full bg-[#0f1117] hover:bg-[#0f1117]/90 disabled:bg-[#0f1117]/20 disabled:text-slate-400 disabled:cursor-not-allowed text-white hover:text-[#e51a34]/90 disabled:text-[#e51a34]/30 font-black text-[10px] uppercase tracking-widest rounded-2xl py-3 px-6 transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm border border-white/10"
-                              >
-                                <Truck size={14} />
-                                <span>Add shipping Info</span>
-                              </button>
+                                {/* Domestic Express Courier */}
+                                <div className="flex justify-between items-center text-slate-600 font-mono">
+                                  <span>Domestic Express Courier</span>
+                                  <span className="font-bold text-black">
+                                    {courierFee > 0 ? `₹${courierFee.toLocaleString("en-IN")}` : "Free"}
+                                  </span>
+                                </div>
+                                
+                                {/* Coupon / Voucher */}
+                                {discount > 0 && (
+                                  <div className="flex justify-between items-center text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 font-mono text-xs font-bold">
+                                    <span className="flex items-center gap-1">
+                                      🏷️ Studio Voucher ({order.couponCode || "COUPON"})
+                                    </span>
+                                    <span>-₹{discount.toLocaleString("en-IN")}</span>
+                                  </div>
+                                )}
+
+                                {/* Grand Total */}
+                                <div className="border-t border-slate-200 pt-2.5 flex justify-between items-center text-sm font-black mt-2 font-mono">
+                                  <span className="text-slate-900 uppercase tracking-wide">Paid Grand Total</span>
+                                  <span className="text-base text-[#e51a34] font-black">₹{order.totalAmount.toLocaleString("en-IN")}</span>
+                                </div>
+
+                                {/* Shipping Info Action Button */}
+                                <div className="pt-4 border-t border-slate-200 mt-4 font-sans">
+                                  <button
+                                    disabled={order.status?.toLowerCase() !== "processing"}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedOrderForShipping(order);
+                                      setShippingForm({
+                                        courierServiceName: order.courierServiceName || "",
+                                        courierId: order.courierId || "",
+                                        trackingNumber: order.trackingNumber || "",
+                                        trackingLink: order.trackingLink || "",
+                                        estimatedDeliveryDate: order.estimatedDeliveryDate 
+                                          ? new Date(order.estimatedDeliveryDate).toISOString().split('T')[0]
+                                          : "",
+                                        shippingNotes: order.shippingNotes || ""
+                                      });
+                                      setShowShippingModal(true);
+                                    }}
+                                    className="w-full bg-[#0f1117] hover:bg-[#0f1117]/90 disabled:bg-[#0f1117]/20 disabled:text-slate-400 disabled:cursor-not-allowed text-white hover:text-[#e51a34]/90 disabled:text-[#e51a34]/30 font-black text-[10px] uppercase tracking-widest rounded-2xl py-3 px-6 transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm border border-white/10"
+                                  >
+                                    <Truck size={14} />
+                                    <span>Add shipping Info</span>
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
+                          );
+                        })()}
 
                         {/* Shipping Details (Admin view) */}
                         {order.courierServiceName && order.trackingNumber && (
@@ -1027,7 +1141,7 @@ export default function AdminOrders() {
                   Cancel Order
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                  Order #AS-{cancelOrderId}
+                  Order #XV-ORD-{cancelOrderId}
                 </p>
               </div>
               <button 
@@ -1040,18 +1154,42 @@ export default function AdminOrders() {
             </div>
 
             {/* Form */}
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-5">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
-                  Reason for Cancellation
+                  Select Reason *
+                </label>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {ADMIN_CANCEL_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setSelectedAdminCancelPreset(preset)}
+                      className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-between cursor-pointer ${
+                        selectedAdminCancelPreset === preset
+                          ? "bg-rose-50 border-rose-300 text-rose-700"
+                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span className="truncate">{preset}</span>
+                      {selectedAdminCancelPreset === preset && (
+                        <Check className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                  Internal Notes &amp; Explanation (Optional)
                 </label>
                 <textarea
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Enter the reason why this order is being cancelled..."
-                  rows={4}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-4 text-xs font-bold text-black placeholder-brand/30 focus:outline-none focus:border-[#e51a34] focus:ring-2 focus:ring-[#e51a34]/20 transition-all resize-none"
-                  required
+                  placeholder="Additional context regarding customer request or reason..."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 text-xs font-bold text-black placeholder-brand/30 focus:outline-none focus:border-[#e51a34] focus:ring-2 focus:ring-[#e51a34]/20 transition-all resize-none"
                 />
               </div>
 
@@ -1067,7 +1205,7 @@ export default function AdminOrders() {
                 <button
                   type="button"
                   onClick={handleConfirmCancel}
-                  disabled={isSubmittingCancel || !cancelReason.trim()}
+                  disabled={isSubmittingCancel}
                   className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                 >
                   {isSubmittingCancel && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

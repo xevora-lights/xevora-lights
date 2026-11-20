@@ -40,19 +40,21 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "Cannot modify a cancelled order" }, { status: 400 });
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     if (status) {
-      const currentStatus = currentOrder[0].status?.toLowerCase() || "";
       if (status.toLowerCase() === "cancelled" && (currentStatus === "shipped" || currentStatus === "delivered")) {
         return NextResponse.json(
           { success: false, error: "Cannot cancel an order that has already been shipped or delivered" },
           { status: 400 }
         );
       }
-      updateData.status = status;
-      if (status.toLowerCase() === "cancelled" && cancellationReason) {
-        updateData.cancellationReason = cancellationReason;
+      if (status.toLowerCase() === "cancelled") {
+        updateData.status = "Cancelled";
+        updateData.cancellationReason = cancellationReason || "Cancelled by store administrator";
+        updateData.cancelledBy = "admin";
+      } else {
+        updateData.status = status;
       }
     }
 
@@ -69,7 +71,7 @@ export async function PATCH(
       .where(eq(orders.id, orderId));
 
     return NextResponse.json({ success: true, message: "Order updated successfully" });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error updating order:", error);
     return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }

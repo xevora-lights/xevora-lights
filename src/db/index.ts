@@ -57,6 +57,7 @@ const migrationStatements = [
   "ALTER TABLE orders ADD COLUMN estimated_delivery_date INTEGER;",
   "ALTER TABLE orders ADD COLUMN shipping_notes TEXT;",
   "ALTER TABLE orders ADD COLUMN cancellation_reason TEXT;",
+  "ALTER TABLE orders ADD COLUMN cancelled_by TEXT;",
   "ALTER TABLE reels ADD COLUMN creator_handle TEXT DEFAULT '@creator';",
   `CREATE TABLE IF NOT EXISTS reels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
